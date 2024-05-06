@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.linalg import hadamard
 
+
 def img_transform(img: np.uint8, trans_category: str = 'DCT', reverse: bool = False,
                   compression_rate: float = 1.0) -> np.uint8:
     assert img.shape[0] == img.shape[1]
@@ -15,9 +16,9 @@ def img_transform(img: np.uint8, trans_category: str = 'DCT', reverse: bool = Fa
             # 进行离散余弦变换
             dct_img = cv2.dct(img_float32)
             # cv2.imshow('DCT_beforeTH', dct_img)
-            sorted_pixels = np.sort(dct_img.flatten())
+            sorted_pixels = np.sort(np.abs(dct_img).flatten())
             threshold_value = np.percentile(sorted_pixels, q=int(compression_rate * 100))
-            dct_img[dct_img <= threshold_value] = 0
+            dct_img[np.abs(dct_img) <= threshold_value] = 0
             # cv2.imshow('DCT', dct_img)
             return dct_img
         if reverse:
@@ -51,34 +52,47 @@ def img_transform(img: np.uint8, trans_category: str = 'DCT', reverse: bool = Fa
             dht_img[np.abs(dht_img) <= threshold_value] = 0
             return dht_img
         if reverse:
-            idht_img = Hadamard@img_float32@ Hadamard/ img.shape[0]/img.shape[1]
+            idht_img = Hadamard @ img_float32 @ Hadamard / img.shape[0] / img.shape[1]
             idht_img = np.uint8(np.round(idht_img))
             return idht_img
 
     raise TypeError('Not such transform category!')
 
-def Lab1(img_adress:str='imgs/lena.png'):
-    img = cv2.imread(img_adress, cv2.IMREAD_GRAYSCALE)
-    cr = 0.95  # compression_rate
-    # DCT
-    dct_img = img_transform(img, trans_category='DCT', compression_rate=cr)
-    idct_img = img_transform(dct_img, trans_category='DCT', reverse=True)
-    # DFT
-    dft_img = img_transform(img, trans_category='DFT', compression_rate=cr)
-    idft_img = img_transform(dft_img, trans_category='DFT', reverse=True)
-    # DHT
-    dht_img = img_transform(img, trans_category='DHT', compression_rate=cr)
-    idht_img = img_transform(dht_img, trans_category='DHT', reverse=True)
-    psnr = [cv2.PSNR(img, idct_img), cv2.PSNR(img, idft_img), cv2.PSNR(img, idht_img)]
-    # 显示原始图像和变换后的图像
-    cv2.imshow('Original', img)
-    cv2.imshow('iDCT_img', idct_img)
-    cv2.imshow('iDFT_img', idft_img)
-    cv2.imshow('iDHT_img', idht_img)
-    print(psnr)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
 
-if __name__ == '__main__':
-    Lab1()
-    # Lab1(img_adress='imgs/cameraman.jpg')
+def maxPSNR(img: np.uint8) -> float:
+    psnr_1 = cv2.PSNR(img, np.zeros(img.shape[0], img.shape[1]))
+    psnr_2 = cv2.PSNR(img, 255 * np.ones(img.shape[0], img.shape[1]))
+    return psnr_1 if psnr_1 > psnr_2 else psnr_2
+
+
+def comparePSNR(dct_dict: dict, dft_dict: dict, dht_dict: dict, psnr: float = 0) -> int:
+    dct_list = [key for key, value in dct_dict.items() if value < psnr]
+    dft_list = [key for key, value in dft_dict.items() if value < psnr]
+    dht_list = [key for key, value in dht_dict.items() if value < psnr]
+    if len(dct_list) > 0:
+        print(max(dct_list))
+    else:
+        print('all above')
+    if len(dht_list) > 0:
+        print(max(dct_list))
+    else:
+        print('all above')
+    if len(dht_list) > 0:
+        print(max(dct_list))
+    else:
+        print('all above')
+
+
+def plot_psnr(img: np.uint8, trans_category: str = 'DCT', start: int = 1, stop: int = 85) -> dict:
+    assert img.shape[0] == img.shape[1]
+    if not trans_category in ['DCT', 'DFT', 'DHT']:
+        raise TypeError('Not such transform category!')
+    plt_x = np.array(range(start, stop, 1))
+    plot_line = []
+    for cr in range(start, stop, 1):
+        cr = 1 - float(cr) / 100
+        trans_img = img_transform(img, trans_category=trans_category, compression_rate=cr)
+        itrans_img = img_transform(trans_img, trans_category=trans_category, reverse=True)
+        plot_line.append(cv2.PSNR(img, itrans_img))
+    plt.plot(plt_x, plot_line)
+    return {key.tolist(): value for key, value in zip(plt_x, plot_line)}
