@@ -4,20 +4,21 @@ import matplotlib.pyplot as plt
 from scipy.linalg import hadamard
 
 
-def img_transform(img: np.uint8, trans_category: str = 'DCT', reverse: bool = False,
-                  compression_rate: float = 1.0) -> np.uint8:
+def img_transform(img: np.ndarray, trans_category: str = 'DCT', reverse: bool = False,
+                  compression_rate: float = 0.0) -> np.uint8:
     assert img.shape[0] == img.shape[1]
     if compression_rate > 1 or compression_rate < 0:
         raise ValueError('Wrong compression_rate!')
     # 将图像转换为 float32 类型
-    img_float32 = np.float32(img)
+    if not np.iscomplexobj(img):
+        img_float32 = np.float32(img)
     if trans_category == 'DCT':
         if not reverse:
             # 进行离散余弦变换
             dct_img = cv2.dct(img_float32)
             # cv2.imshow('DCT_beforeTH', dct_img)
             sorted_pixels = np.sort(np.abs(dct_img).flatten())
-            threshold_value = np.percentile(sorted_pixels, q=int(compression_rate * 100))
+            threshold_value = np.percentile(sorted_pixels, q=(compression_rate * 100))
             dct_img[np.abs(dct_img) <= threshold_value] = 0
             # cv2.imshow('DCT', dct_img)
             return dct_img
@@ -27,20 +28,15 @@ def img_transform(img: np.uint8, trans_category: str = 'DCT', reverse: bool = Fa
     elif trans_category == 'DFT':
         if not reverse:
             # 傅里叶变换
-            dft_img = cv2.dft(img_float32, flags=cv2.DFT_REAL_OUTPUT)
-            dft_img_complex = cv2.dft(img_float32, flags=cv2.DFT_COMPLEX_OUTPUT)
-            sorted_pixels = np.sort(dft_img.flatten())
-            threshold_value = np.percentile(sorted_pixels, q=int(compression_rate * 100))
+            dft_img = np.fft.fft2(img)
+            sorted_pixels = np.sort(np.abs(dft_img).flatten())
+            threshold_value = np.percentile(sorted_pixels, q=(compression_rate * 100))
             # 遍历实部和虚部
-            for i in range(img.shape[0]):
-                for j in range(img.shape[1]):
-                    # 如果和小于阈值，将实部和虚部置为0
-                    if dft_img[i, j] < threshold_value:
-                        dft_img_complex[i, j, 0] = 0
-                        dft_img_complex[i, j, 1] = 0
-            return dft_img_complex
+            dft_img[np.abs(dft_img) <= threshold_value] = 0
+            return dft_img
         if reverse:
-            idft_img = cv2.idft(img_float32, flags=cv2.DFT_SCALE | cv2.DFT_REAL_OUTPUT)
+            idft_img = np.fft.ifft2(img)
+            idft_img = np.abs(idft_img)
             idft_img = np.uint8(np.round(idft_img))
             return idft_img
     elif trans_category == 'DHT':
@@ -48,7 +44,7 @@ def img_transform(img: np.uint8, trans_category: str = 'DCT', reverse: bool = Fa
         if not reverse:
             dht_img = Hadamard @ img_float32 @ Hadamard
             sorted_pixels = np.sort(np.abs(dht_img).flatten())
-            threshold_value = np.percentile(sorted_pixels, q=int(compression_rate * 100))
+            threshold_value = np.percentile(sorted_pixels, q=(compression_rate * 100))
             dht_img[np.abs(dht_img) <= threshold_value] = 0
             return dht_img
         if reverse:
@@ -65,34 +61,42 @@ def maxPSNR(img: np.uint8) -> float:
     return psnr_1 if psnr_1 > psnr_2 else psnr_2
 
 
-def comparePSNR(dct_dict: dict, dft_dict: dict, dht_dict: dict, psnr: float = 0) -> int:
-    dct_list = [key for key, value in dct_dict.items() if value < psnr]
-    dft_list = [key for key, value in dft_dict.items() if value < psnr]
-    dht_list = [key for key, value in dht_dict.items() if value < psnr]
-    if len(dct_list) > 0:
-        print(max(dct_list))
-    else:
-        print('all above')
-    if len(dht_list) > 0:
-        print(max(dct_list))
-    else:
-        print('all above')
-    if len(dht_list) > 0:
-        print(max(dct_list))
-    else:
-        print('all above')
+def comparePSNR(img: np.uint8, trans_category: str = 'DCT', psnr: float = 0) -> None:
+    # 在 0.9 -> 1.0 里寻找可能的点，步长为 0.001，可以自行修改
+    for i in range(900, 1001):
+        t_img = img_transform(img, trans_category, compression_rate=float(i / 1000))
+        i_img = img_transform(t_img, trans_category, reverse=True)
+        if cv2.PSNR(img, i_img) < psnr:
+            print(trans_category+' non zero element:'+str(np.count_nonzero(t_img)))
+            return
+    return
 
 
-def plot_psnr(img: np.uint8, trans_category: str = 'DCT', start: int = 1, stop: int = 85) -> dict:
+def plt_spectrogram(trans_img: np.ndarray)->None:
+    np.seterr(divide='ignore')
+    fshift = np.fft.fftshift(trans_img)
+    magnitude_spectrum = 20 * np.log(np.abs(fshift))
+    plt.imshow(magnitude_spectrum, cmap='gray')
+    plt.title('Magnitude Spectrum'), plt.xticks([]), plt.yticks([])
+    plt.show()
+    return
+
+def plot_psnr(img: np.uint8, trans_category: str = 'DCT', start: int = 0, stop: int = 100) -> dict:
     assert img.shape[0] == img.shape[1]
     if not trans_category in ['DCT', 'DFT', 'DHT']:
         raise TypeError('Not such transform category!')
+    if start < 0 or stop > 100:
+        raise ValueError
     plt_x = np.array(range(start, stop, 1))
     plot_line = []
     for cr in range(start, stop, 1):
-        cr = 1 - float(cr) / 100
+        cr = float(cr) / 100
         trans_img = img_transform(img, trans_category=trans_category, compression_rate=cr)
         itrans_img = img_transform(trans_img, trans_category=trans_category, reverse=True)
         plot_line.append(cv2.PSNR(img, itrans_img))
     plt.plot(plt_x, plot_line)
     return {key.tolist(): value for key, value in zip(plt_x, plot_line)}
+
+
+def float32img_output(f32_img: np.float32) -> np.uint8:
+    return np.uint8(np.round(f32_img))
