@@ -51,28 +51,21 @@ def img_transform(img: np.ndarray, trans_category: str = 'DCT', reverse: bool = 
             idht_img = Hadamard @ img_float32 @ Hadamard / img.shape[0] / img.shape[1]
             idht_img = np.uint8(np.round(idht_img))
             return idht_img
-
     raise TypeError('Not such transform category!')
 
 
-def maxPSNR(img: np.uint8) -> float:
-    psnr_1 = cv2.PSNR(img, np.zeros(img.shape[0], img.shape[1]))
-    psnr_2 = cv2.PSNR(img, 255 * np.ones(img.shape[0], img.shape[1]))
-    return psnr_1 if psnr_1 > psnr_2 else psnr_2
-
-
 def comparePSNR(img: np.uint8, trans_category: str = 'DCT', psnr: float = 0) -> None:
-    # 在 0.9 -> 1.0 里寻找可能的点，步长为 0.001，可以自行修改
+    # 在 0.9 -> 1.0 里寻找可能的点，非最优查找办法（二分查找），步长为 0.001，可以自行修改
     for i in range(900, 1001):
         t_img = img_transform(img, trans_category, compression_rate=float(i / 1000))
         i_img = img_transform(t_img, trans_category, reverse=True)
         if cv2.PSNR(img, i_img) < psnr:
-            print(trans_category+' non zero element:'+str(np.count_nonzero(t_img)))
+            print(trans_category + ' non zero element:' + str(np.count_nonzero(t_img)))
             return
     return
 
 
-def plt_spectrogram(trans_img: np.ndarray)->None:
+def plt_spectrogram(trans_img: np.ndarray) -> None:
     np.seterr(divide='ignore')
     fshift = np.fft.fftshift(trans_img)
     magnitude_spectrum = 20 * np.log(np.abs(fshift))
@@ -80,6 +73,7 @@ def plt_spectrogram(trans_img: np.ndarray)->None:
     plt.title('Magnitude Spectrum'), plt.xticks([]), plt.yticks([])
     plt.show()
     return
+
 
 def plot_psnr(img: np.uint8, trans_category: str = 'DCT', start: int = 0, stop: int = 100) -> dict:
     assert img.shape[0] == img.shape[1]
@@ -96,7 +90,3 @@ def plot_psnr(img: np.uint8, trans_category: str = 'DCT', start: int = 0, stop: 
         plot_line.append(cv2.PSNR(img, itrans_img))
     plt.plot(plt_x, plot_line)
     return {key.tolist(): value for key, value in zip(plt_x, plot_line)}
-
-
-def float32img_output(f32_img: np.float32) -> np.uint8:
-    return np.uint8(np.round(f32_img))
