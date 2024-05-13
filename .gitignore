@@ -1,3 +1,4 @@
 /Lab5_lib/dataset
 /Lab5_lib/log
-Lab5_lib/resnet50.pth
+/Lab5_lib/resnet50.pth
+.idea
