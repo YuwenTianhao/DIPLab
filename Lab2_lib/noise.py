@@ -16,7 +16,7 @@ def add_sp_noise(img: np.uint8, pepper_probability: float = 0, slat_probability:
             rdn = random.random()
             if rdn < pepper_probability:
                 noisy_img[i][j] = 0
-            elif rdn > 1-slat_probability:
+            elif rdn > 1 - slat_probability:
                 noisy_img[i][j] = 255
             else:
                 noisy_img[i][j] = img[i][j]
