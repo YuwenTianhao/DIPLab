@@ -1,10 +1,11 @@
 import numpy as np
 import cv2
-from noise import add_sp_noise
-from noise import add_gauss_noise
+from Lab2_lib.noise import add_sp_noise
+from Lab2_lib.noise import add_gauss_noise
+import matplotlib.pyplot as plt
 
 
-def search_best_param(img: np.uint8, noise_img: np.ndarray, blur_type: str = 'median') -> list:
+def search_best_param(img: np.uint8, noise_img: np.ndarray, blur_type: str = 'median') -> int:
     last_psnr = 0
     assert img.dtype == noise_img.dtype
     if blur_type == 'median':
@@ -45,27 +46,40 @@ def change_ksize_and_output(img: np.uint8, noise_img: np.uint8, starts_size: int
     for ksize in range(starts_size, end_size + 1, 2):
         filter_M_img = cv2.medianBlur(src=noise_img, ksize=ksize)
         filter_B_img = cv2.blur(src=noise_img, ksize=(ksize, ksize))
-        # cv2.imshow('ksize=' + str(ksize) + '_medianBlur', filter_M_img)
-        # cv2.imshow('ksize=' + str(ksize) + '_blur', filter_B_img)
         psnr_dict_mb[str(ksize)] = cv2.PSNR(img, filter_M_img)
         psnr_dict_b[str(ksize)] = cv2.PSNR(img, filter_B_img)
     print('MedianBlur:' + str(psnr_dict_mb))
     print('Blur:' + str(psnr_dict_b))
 
 
-def lab2(img_adress: str = 'imgs/lena.png'):
-    img = cv2.imread(img_adress, cv2.IMREAD_GRAYSCALE)
-    cv2.imshow('img', img)
+def lab2(img_address: str = 'imgs/lena.png'):
+    img = cv2.imread(img_address, cv2.IMREAD_GRAYSCALE)
+
+    # 展示加噪图像
+    plt.figure(1)
+    plt.subplot(1,3,1)
+    plt.imshow(img,cmap='gray')
+    plt.title('Original Image',fontsize='small')
+    plt.axis('off')
+    plt.subplot(1,3,2)
     # 椒盐噪声
     sp_img = add_sp_noise(img, 0.05, 0.05)
-    cv2.imshow('sp_img', sp_img)
-    # print('SP_img PSNR result')
-    # change_ksize_and_output(img=img, noise_img=sp_img, starts_size=3, end_size=7)
+    plt.imshow(sp_img,cmap='gray')
+    plt.title('SP Image',fontsize='small')
+    plt.axis('off')
+    plt.subplot(1,3,3)
+
+    print('SP_img PSNR result')
+    change_ksize_and_output(img=img, noise_img=sp_img, starts_size=3, end_size=7)
     # 高斯噪声
     gs_img = add_gauss_noise(img, mean=0, sigma=20)
-    cv2.imshow('gs_img', gs_img)
-    # print('GS_img PSNR result')
-    # change_ksize_and_output(img=img, noise_img=sp_img, starts_size=3, end_size=7)
+    plt.imshow(sp_img,cmap='gray')
+    plt.title('GS Image',fontsize='small')
+    plt.axis('off')
+    plt.show()
+    print('GS_img PSNR result')
+    change_ksize_and_output(img=img, noise_img=gs_img, starts_size=3, end_size=7)
+
     ksize_m = search_best_param(img=img, noise_img=sp_img, blur_type='median')
     ksize_b = search_best_param(img=img, noise_img=sp_img, blur_type='blur')
     filer_M_img = cv2.medianBlur(src=sp_img, ksize=ksize_m)

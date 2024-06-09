@@ -1,7 +1,7 @@
 matplotlib==3.7.5
 numpy==1.22.4
-numpy==1.24.4
 opencv_python==4.9.0.80
-scipy==1.13.0
+PySide6==6.6.3.1
+scipy==1.13.1
 torch==2.3.0+cu118
 torchvision==0.18.0+cu118
